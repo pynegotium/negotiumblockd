@@ -39,11 +39,11 @@ def serve_api(mongo_db, redis_client):
     # the server side, this makes it easier for 3rd party wallets (i.e. not Counterwallet) to fully be able to
     # use counterblockd to not only pull useful data, but also load and store their own preferences, containing
     # whatever data they need
-    
+
     DEFAULT_COUNTERPARTYD_API_CACHE_PERIOD = 60 #in seconds
     app = flask.Flask(__name__)
     tx_logger = logging.getLogger("transaction_log") #get transaction logger
-    
+
     @dispatcher.add_method
     def is_ready():
         """this method used by the client to check if the server is alive, caught up, and ready to accept requests.
@@ -56,12 +56,12 @@ def serve_api(mongo_db, redis_client):
         return {
             'caught_up': util.is_caught_up_well_enough_for_government_work(),
             'last_message_index': config.LAST_MESSAGE_INDEX,
-            'block_height': blockchainInfo['info']['blocks'], 
+            'block_height': blockchainInfo['info']['blocks'],
             'testnet': config.TESTNET,
             'ip': ip,
             'country': country
         }
-    
+
     @dispatcher.add_method
     def get_reflected_host_info():
         """Allows the requesting host to get some info about itself, such as its IP. Used for troubleshooting."""
@@ -72,7 +72,7 @@ def serve_api(mongo_db, redis_client):
             'cookie': flask.request.headers.get('Cookie', ''),
             'country': country
         }
-    
+
     @dispatcher.add_method
     def get_messagefeed_messages_by_index(message_indexes):
         messages = util.call_jsonrpc_api("get_messages_by_index", {'message_indexes': message_indexes}, abort_on_error=True)['result']
@@ -133,14 +133,14 @@ def serve_api(mongo_db, redis_client):
     def get_normalized_balances(addresses):
         """
         This call augments counterpartyd's get_balances with a normalized_quantity field. It also will include any owned
-        assets for an address, even if their balance is zero. 
-        NOTE: Does not retrieve BTC balance. Use get_address_info for that.
+        assets for an address, even if their balance is zero.
+        NOTE: Does not retrieve DOGE balance. Use get_address_info for that.
         """
         if not isinstance(addresses, list):
             raise Exception("addresses must be a list of addresses, even if it just contains one address")
         if not len(addresses):
             raise Exception("Invalid address list supplied")
-        
+
         filters = []
         for address in addresses:
             filters.append({'field': 'address', 'op': '==', 'value': address})
@@ -173,7 +173,7 @@ def serve_api(mongo_db, redis_client):
             d['owner'] = (d['address'] + d['asset']) in isowner
             mappings[d['address'] + d['asset']] = d
             data.append(d)
-        
+
         #include any owned assets for each address, even if their balance is zero
         for key in isowner:
             if key not in mappings:
@@ -190,11 +190,11 @@ def serve_api(mongo_db, redis_client):
 
     def _get_address_history(address, start_block=None, end_block=None):
         address_dict = {}
-        
+
         address_dict['balances'] = util.call_jsonrpc_api("get_balances",
             { 'filters': [{'field': 'address', 'op': '==', 'value': address},],
             }, abort_on_error=True)['result']
-        
+
         address_dict['debits'] = util.call_jsonrpc_api("get_debits",
             { 'filters': [{'field': 'address', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -202,7 +202,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['credits'] = util.call_jsonrpc_api("get_credits",
             { 'filters': [{'field': 'address', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -210,7 +210,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['burns'] = util.call_jsonrpc_api("get_burns",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -218,7 +218,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['sends'] = util.call_jsonrpc_api("get_sends",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address}, {'field': 'destination', 'op': '==', 'value': address}],
               'filterop': 'or',
@@ -227,8 +227,8 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        #^ with filterop == 'or', we get all sends where this address was the source OR destination 
-        
+        #^ with filterop == 'or', we get all sends where this address was the source OR destination
+
         address_dict['orders'] = util.call_jsonrpc_api("get_orders",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -245,7 +245,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['btcpays'] = util.call_jsonrpc_api("get_btcpays",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address}, {'field': 'destination', 'op': '==', 'value': address}],
               'filterop': 'or',
@@ -254,7 +254,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['issuances'] = util.call_jsonrpc_api("get_issuances",
             { 'filters': [{'field': 'issuer', 'op': '==', 'value': address}, {'field': 'source', 'op': '==', 'value': address}],
               'filterop': 'or',
@@ -263,7 +263,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['broadcasts'] = util.call_jsonrpc_api("get_broadcasts",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -279,7 +279,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['bet_matches'] = util.call_jsonrpc_api("get_bet_matches",
             { 'filters': [{'field': 'tx0_address', 'op': '==', 'value': address}, {'field': 'tx1_address', 'op': '==', 'value': address},],
               'filterop': 'or',
@@ -288,7 +288,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['dividends'] = util.call_jsonrpc_api("get_dividends",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -296,7 +296,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-        
+
         address_dict['cancels'] = util.call_jsonrpc_api("get_cancels",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -304,7 +304,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['callbacks'] = util.call_jsonrpc_api("get_callbacks",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -312,7 +312,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['bet_expirations'] = util.call_jsonrpc_api("get_bet_expirations",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -320,7 +320,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['order_expirations'] = util.call_jsonrpc_api("get_order_expirations",
             { 'filters': [{'field': 'source', 'op': '==', 'value': address},],
               'order_by': 'block_index',
@@ -328,7 +328,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['bet_match_expirations'] = util.call_jsonrpc_api("get_bet_match_expirations",
             { 'filters': [{'field': 'tx0_address', 'op': '==', 'value': address}, {'field': 'tx1_address', 'op': '==', 'value': address},],
               'filterop': 'or',
@@ -337,7 +337,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         address_dict['order_match_expirations'] = util.call_jsonrpc_api("get_order_match_expirations",
             { 'filters': [{'field': 'tx0_address', 'op': '==', 'value': address}, {'field': 'tx1_address', 'op': '==', 'value': address},],
               'filterop': 'or',
@@ -346,7 +346,7 @@ def serve_api(mongo_db, redis_client):
               'start_block': start_block,
               'end_block': end_block,
             }, abort_on_error=True)['result']
-    
+
         return address_dict
 
     @dispatcher.add_method
@@ -363,7 +363,7 @@ def serve_api(mongo_db, redis_client):
     @dispatcher.add_method
     def get_raw_transactions(address, start_ts=None, end_ts=None, limit=500):
         """Gets raw transactions for a particular address
-        
+
         @param address: A single address string
         @param start_ts: The starting date & time. Should be a unix epoch object. If passed as None, defaults to 60 days before the end_date
         @param end_ts: The ending date & time. Should be a unix epoch object. If passed as None, defaults to the current date & time
@@ -376,9 +376,9 @@ def serve_api(mongo_db, redis_client):
             asset_data = mongo_db.tracked_assets.find_one({'asset': asset})
             asset_cache[asset] = asset_data
             return asset_data
-        
+
         asset_cache = {} #ghetto cache to speed asset lookups within the scope of a function call
-        
+
         now_ts = time.mktime(datetime.datetime.utcnow().timetuple())
         if not end_ts: #default to current datetime
             end_ts = now_ts
@@ -387,7 +387,7 @@ def serve_api(mongo_db, redis_client):
         start_block_index, end_block_index = util.get_block_indexes_for_dates(
             start_dt=datetime.datetime.utcfromtimestamp(start_ts),
             end_dt=datetime.datetime.utcfromtimestamp(end_ts) if now_ts != end_ts else None)
-        
+
         #make API call to counterpartyd to get all of the data for the specified address
         txns = []
         d = _get_address_history(address, start_block=start_block_index, end_block=end_block_index)
@@ -403,7 +403,7 @@ def serve_api(mongo_db, redis_client):
         txns = txns[0:limit] #TODO: we can trunk before sorting. check if we can use the messages table and use sql order and limit
         #^ won't be a perfect sort since we don't have tx_indexes for cancellations, but better than nothing
         #txns.sort(key=operator.itemgetter('block_index'))
-        return txns 
+        return txns
 
     @dispatcher.add_method
     def get_base_quote_asset(asset1, asset2):
@@ -435,11 +435,11 @@ def serve_api(mongo_db, redis_client):
         if not end_ts: #default to current datetime
             end_ts = now_ts
         if not start_ts: #default to 30 days before the end date
-            start_ts = end_ts - (30 * 24 * 60 * 60) 
-        
+            start_ts = end_ts - (30 * 24 * 60 * 60)
+
         data = {}
         results = {}
-        #^ format is result[market_cap_as][asset] = [[block_time, market_cap], [block_time2, market_cap2], ...] 
+        #^ format is result[market_cap_as][asset] = [[block_time, market_cap], [block_time2, market_cap2], ...]
         for market_cap_as in (config.XCP, config.BTC):
             caps = mongo_db.asset_marketcap_history.aggregate([
                 {"$match": {
@@ -448,8 +448,8 @@ def serve_api(mongo_db, redis_client):
                         "$gte": datetime.datetime.utcfromtimestamp(start_ts)
                     } if end_ts == now_ts else {
                         "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                        "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
-                    }                    
+                        "$lte": datetime.datetime.utcfromtimestamp(end_ts)
+                    }
                 }},
                 {"$project": {
                     "year":  {"$year": "$block_time"},
@@ -474,9 +474,9 @@ def serve_api(mongo_db, redis_client):
             results[market_cap_as] = []
             for asset in data[market_cap_as]:
                 #for z in data[market_cap_as][asset]: assert z[0] and z[0] > 0 and z[1] and z[1] >= 0
-                results[market_cap_as].append({'name': asset, 
+                results[market_cap_as].append({'name': asset,
                     'data': sorted(data[market_cap_as][asset], key=operator.itemgetter(0))})
-        return results 
+        return results
 
     @dispatcher.add_method
     def get_market_info(assets):
@@ -499,9 +499,9 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def get_market_info_leaderboard(limit=100):
-        """returns market leaderboard data for both the XCP and BTC markets"""
-        #do two queries because we limit by our sorted results, and we might miss an asset with a high BTC trading value
-        # but with little or no XCP trading activity, for instance if we just did one query
+        """returns market leaderboard data for both the XDP and DOGE markets"""
+        #do two queries because we limit by our sorted results, and we might miss an asset with a high DOGE trading value
+        # but with little or no XDP trading activity, for instance if we just did one query
         assets_market_info_xcp = list(mongo_db.asset_market_info.find({}, {'_id': 0}).sort('market_cap_in_{}'.format(config.XCP.lower()), pymongo.DESCENDING).limit(limit))
         assets_market_info_btc = list(mongo_db.asset_market_info.find({}, {'_id': 0}).sort('market_cap_in_{}'.format(config.BTC.lower()), pymongo.DESCENDING).limit(limit))
         assets_market_info = {
@@ -534,16 +534,16 @@ def serve_api(mongo_db, redis_client):
         @returns List of lists (or list of dicts, if as_dict is specified).
             * If as_dict is False, each embedded list has 8 elements [block time (epoch in MS), open, high, low, close, volume, # trades in block, block index]
             * If as_dict is True, each dict in the list has the keys: block_time (epoch in MS), block_index, open, high, low, close, vol, count
-            
-        Aggregate on an an hourly basis 
+
+        Aggregate on an an hourly basis
         """
         now_ts = time.mktime(datetime.datetime.utcnow().timetuple())
         if not end_ts: #default to current datetime
             end_ts = now_ts
         if not start_ts: #default to 180 days before the end date
-            start_ts = end_ts - (180 * 24 * 60 * 60) 
+            start_ts = end_ts - (180 * 24 * 60 * 60)
         base_asset, quote_asset = util.assets_to_asset_pair(asset1, asset2)
-        
+
         #get ticks -- open, high, low, close, volume
         result = mongo_db.trades.aggregate([
             {"$match": {
@@ -553,8 +553,8 @@ def serve_api(mongo_db, redis_client):
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts)
                 } if end_ts == now_ts else {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
-                }                
+                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)
+                }
             }},
             {"$project": {
                 "year":  {"$year": "$block_time"},
@@ -579,7 +579,7 @@ def serve_api(mongo_db, redis_client):
         if not result['ok'] or not len(result['result']):
             return False
         result = result['result']
-        
+
         midline = [((r['high'] + r['low']) / 2.0) for r in result]
         if as_dict:
             for i in xrange(len(result)):
@@ -598,7 +598,7 @@ def serve_api(mongo_db, redis_client):
                     result[i]['count'], midline[i]
                 ])
             return list_result
-    
+
     @dispatcher.add_method
     def get_trade_history(asset1=None, asset2=None, start_ts=None, end_ts=None, limit=50):
         """
@@ -614,14 +614,14 @@ def serve_api(mongo_db, redis_client):
         if not end_ts: #default to current datetime
             end_ts = now_ts
         if not start_ts: #default to 30 days before the end date
-            start_ts = end_ts - (30 * 24 * 60 * 60) 
+            start_ts = end_ts - (30 * 24 * 60 * 60)
 
         filters = {
             "block_time": {
                 "$gte": datetime.datetime.utcfromtimestamp(start_ts)
             } if end_ts == now_ts else {
                 "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
+                "$lte": datetime.datetime.utcfromtimestamp(end_ts)
             }
         }
         if asset1 and asset2:
@@ -633,24 +633,24 @@ def serve_api(mongo_db, redis_client):
         if not last_trades.count():
             return False #no suitable trade data to form a market price
         last_trades = list(last_trades)
-        return last_trades 
+        return last_trades
 
     def _get_order_book(base_asset, quote_asset,
     bid_book_min_pct_fee_provided=None, bid_book_min_pct_fee_required=None, bid_book_max_pct_fee_required=None,
     ask_book_min_pct_fee_provided=None, ask_book_min_pct_fee_required=None, ask_book_max_pct_fee_required=None):
         """Gets the current order book for a specified asset pair
-        
-        @param: normalized_fee_required: Only specify if buying BTC. If specified, the order book will be pruned down to only
+
+        @param: normalized_fee_required: Only specify if buying DOGE. If specified, the order book will be pruned down to only
          show orders at and above this fee_required
-        @param: normalized_fee_provided: Only specify if selling BTC. If specified, the order book will be pruned down to only
+        @param: normalized_fee_provided: Only specify if selling DOGE. If specified, the order book will be pruned down to only
          show orders at and above this fee_provided
         """
         base_asset_info = mongo_db.tracked_assets.find_one({'asset': base_asset})
         quote_asset_info = mongo_db.tracked_assets.find_one({'asset': quote_asset})
-        
+
         if not base_asset_info or not quote_asset_info:
             raise Exception("Invalid asset(s)")
-        
+
         #TODO: limit # results to 8 or so for each book (we have to sort as well to limit)
         base_bid_filters = [
             {"field": "get_asset", "op": "==", "value": base_asset},
@@ -662,14 +662,14 @@ def serve_api(mongo_db, redis_client):
         ]
         if base_asset == config.BTC or quote_asset == config.BTC:
             extra_filters = [
-                {'field': 'give_remaining', 'op': '>', 'value': 0}, #don't show empty BTC orders
-                {'field': 'get_remaining', 'op': '>', 'value': 0}, #don't show empty BTC orders
+                {'field': 'give_remaining', 'op': '>', 'value': 0}, #don't show empty DOGE orders
+                {'field': 'get_remaining', 'op': '>', 'value': 0}, #don't show empty DOGE orders
                 {'field': 'fee_required_remaining', 'op': '>=', 'value': 0},
                 {'field': 'fee_provided_remaining', 'op': '>=', 'value': 0},
             ]
             base_bid_filters += extra_filters
             base_ask_filters += extra_filters
-        
+
         base_bid_orders = util.call_jsonrpc_api("get_orders", {
              'filters': base_bid_filters,
              'show_expired': False,
@@ -685,7 +685,7 @@ def serve_api(mongo_db, redis_client):
              'order_by': 'block_index',
              'order_dir': 'asc',
             }, abort_on_error=True)['result']
-        
+
         def get_o_pct(o):
             if o['give_asset'] == config.BTC: #NB: fee_provided could be zero here
                 pct_fee_provided = float(( D(o['fee_provided_remaining']) / D(o['give_quantity']) ))
@@ -695,10 +695,10 @@ def serve_api(mongo_db, redis_client):
             else: pct_fee_required = None
             return pct_fee_provided, pct_fee_required
 
-        #filter results by pct_fee_provided and pct_fee_required for BTC pairs as appropriate
+        #filter results by pct_fee_provided and pct_fee_required for DOGE pairs as appropriate
         filtered_base_bid_orders = []
         filtered_base_ask_orders = []
-        if base_asset == config.BTC or quote_asset == config.BTC:      
+        if base_asset == config.BTC or quote_asset == config.BTC:
             for o in base_bid_orders:
                 pct_fee_provided, pct_fee_required = get_o_pct(o)
                 addToBook = True
@@ -730,7 +730,7 @@ def serve_api(mongo_db, redis_client):
                 if o['give_asset'] == base_asset:
                     if base_asset == config.BTC and o['give_quantity'] <= config.ORDER_BTC_DUST_LIMIT_CUTOFF:
                         continue #filter dust orders, if necessary
-                    
+
                     give_quantity = util_bitcoin.normalize_quantity(o['give_quantity'], base_asset_info['divisible'])
                     get_quantity = util_bitcoin.normalize_quantity(o['get_quantity'], quote_asset_info['divisible'])
                     unit_price = float(( D(get_quantity) / D(give_quantity) ))
@@ -751,7 +751,7 @@ def serve_api(mongo_db, redis_client):
             book = sorted(book.itervalues(), key=operator.itemgetter('unit_price'), reverse=isBidBook)
             #^ convert to list and sort -- bid book = descending, ask book = ascending
             return book
-        
+
         #compile into a single book, at volume tiers
         base_bid_book = make_book(filtered_base_bid_orders, True)
         base_ask_book = make_book(filtered_base_ask_orders, False)
@@ -765,7 +765,7 @@ def serve_api(mongo_db, redis_client):
         else:
             bid_ask_spread = 0
             bid_ask_median = 0
-        
+
         #compose depth and round out quantities
         bid_depth = D(0)
         for o in base_bid_book:
@@ -779,15 +779,15 @@ def serve_api(mongo_db, redis_client):
             ask_depth += D(o['quantity'])
             o['depth'] = float(D(ask_depth))
         ask_depth = float(D(ask_depth))
-        
+
         #compose raw orders
         orders = filtered_base_bid_orders + filtered_base_ask_orders
         for o in orders:
             #add in the blocktime to help makes interfaces more user-friendly (i.e. avoid displaying block
             # indexes and display datetimes instead)
             o['block_time'] = time.mktime(util.get_block_time(o['block_index']).timetuple()) * 1000
-            
-        #for orders where BTC is the give asset, also return online status of the user
+
+        #for orders where DOGE is the give asset, also return online status of the user
         for o in orders:
             if o['give_asset'] == config.BTC:
                 r = mongo_db.btc_open_orders.find_one({'order_tx_hash': o['tx_hash']})
@@ -807,7 +807,7 @@ def serve_api(mongo_db, redis_client):
             'quote_asset': quote_asset
         }
         return result
-    
+
     @dispatcher.add_method
     def get_order_book_simple(asset1, asset2, min_pct_fee_provided=None, max_pct_fee_required=None):
         base_asset, quote_asset = util.assets_to_asset_pair(asset1, asset2)
@@ -829,29 +829,29 @@ def serve_api(mongo_db, redis_client):
         ask_book_max_pct_fee_required = None
         if base_asset == config.BTC:
             if buy_asset == config.BTC:
-                #if BTC is base asset and we're buying it, we're buying the BASE. we require a BTC fee (we're on the bid (bottom) book and we want a lower price)
-                # - show BASE buyers (bid book) that require a BTC fee >= what we require (our side of the book)
-                # - show BASE sellers (ask book) that provide a BTC fee >= what we require
+                #if DOGE is base asset and we're buying it, we're buying the BASE. we require a DOGE fee (we're on the bid (bottom) book and we want a lower price)
+                # - show BASE buyers (bid book) that require a DOGE fee >= what we require (our side of the book)
+                # - show BASE sellers (ask book) that provide a DOGE fee >= what we require
                 bid_book_min_pct_fee_required = pct_fee_required #my competition at the given fee required
                 ask_book_min_pct_fee_provided = pct_fee_required
             elif sell_asset == config.BTC:
-                #if BTC is base asset and we're selling it, we're selling the BASE. we provide a BTC fee (we're on the ask (top) book and we want a higher price)
-                # - show BASE buyers (bid book) that provide a BTC fee >= what we provide 
-                # - show BASE sellers (ask book) that require a BTC fee <= what we provide (our side of the book)
+                #if DOGE is base asset and we're selling it, we're selling the BASE. we provide a DOGE fee (we're on the ask (top) book and we want a higher price)
+                # - show BASE buyers (bid book) that provide a DOGE fee >= what we provide
+                # - show BASE sellers (ask book) that require a DOGE fee <= what we provide (our side of the book)
                 bid_book_max_pct_fee_required = pct_fee_provided
                 ask_book_min_pct_fee_provided = pct_fee_provided #my competition at the given fee provided
         elif quote_asset == config.BTC:
             assert base_asset == config.XCP #only time when this is the case
             if buy_asset == config.BTC:
-                #if BTC is quote asset and we're buying it, we're selling the BASE. we require a BTC fee (we're on the ask (top) book and we want a higher price)
-                # - show BASE buyers (bid book) that provide a BTC fee >= what we require 
-                # - show BASE sellers (ask book) that require a BTC fee >= what we require (our side of the book)
+                #if DOGE is quote asset and we're buying it, we're selling the BASE. we require a DOGE fee (we're on the ask (top) book and we want a higher price)
+                # - show BASE buyers (bid book) that provide a DOGE fee >= what we require
+                # - show BASE sellers (ask book) that require a DOGE fee >= what we require (our side of the book)
                 bid_book_min_pct_fee_provided = pct_fee_required
                 ask_book_min_pct_fee_required = pct_fee_required #my competition at the given fee required
             elif sell_asset == config.BTC:
-                #if BTC is quote asset and we're selling it, we're buying the BASE. we provide a BTC fee (we're on the bid (bottom) book and we want a lower price)
-                # - show BASE buyers (bid book) that provide a BTC fee >= what we provide (our side of the book)
-                # - show BASE sellers (ask book) that require a BTC fee <= what we provide 
+                #if DOGE is quote asset and we're selling it, we're buying the BASE. we provide a DOGE fee (we're on the bid (bottom) book and we want a lower price)
+                # - show BASE buyers (bid book) that provide a DOGE fee >= what we provide (our side of the book)
+                # - show BASE sellers (ask book) that require a DOGE fee <= what we provide
                 bid_book_min_pct_fee_provided = pct_fee_provided #my compeitition at the given fee provided
                 ask_book_max_pct_fee_required = pct_fee_provided
 
@@ -862,7 +862,7 @@ def serve_api(mongo_db, redis_client):
             ask_book_min_pct_fee_provided=ask_book_min_pct_fee_provided,
             ask_book_min_pct_fee_required=ask_book_min_pct_fee_required,
             ask_book_max_pct_fee_required=ask_book_max_pct_fee_required)
-        
+
         #filter down raw_orders to be only open sell orders for what the caller is buying
         open_sell_orders = []
         for o in result['raw_orders']:
@@ -870,7 +870,7 @@ def serve_api(mongo_db, redis_client):
                 open_sell_orders.append(o)
         result['raw_orders'] = open_sell_orders
         return result
-    
+
     @dispatcher.add_method
     def get_transaction_stats(start_ts=None, end_ts=None):
         now_ts = time.mktime(datetime.datetime.utcnow().timetuple())
@@ -878,15 +878,15 @@ def serve_api(mongo_db, redis_client):
             end_ts = now_ts
         if not start_ts: #default to 360 days before the end date
             start_ts = end_ts - (360 * 24 * 60 * 60)
-                
+
         stats = mongo_db.transaction_stats.aggregate([
             {"$match": {
                 "block_time": {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts)
                 } if end_ts == now_ts else {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
-                }                
+                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)
+                }
             }},
             {"$project": {
                 "year":  {"$year": "$block_time"},
@@ -921,7 +921,7 @@ def serve_api(mongo_db, redis_client):
         for k, v in categories.iteritems():
             categories_list.append({'name': k, 'data': v})
         return categories_list
-    
+
     @dispatcher.add_method
     def get_wallet_stats(start_ts=None, end_ts=None):
         now_ts = time.mktime(datetime.datetime.utcnow().timetuple())
@@ -929,19 +929,19 @@ def serve_api(mongo_db, redis_client):
             end_ts = now_ts
         if not start_ts: #default to 360 days before the end date
             start_ts = end_ts - (360 * 24 * 60 * 60)
-            
+
         num_wallets_mainnet = mongo_db.preferences.find({'network': 'mainnet'}).count()
         num_wallets_testnet = mongo_db.preferences.find({'network': 'testnet'}).count()
         num_wallets_unknown = mongo_db.preferences.find({'network': None}).count()
         wallet_stats = []
-        
+
         for net in ['mainnet', 'testnet']:
             filters = {
                 "when": {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts)
                 } if end_ts == now_ts else {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
+                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)
                 },
                 'network': net
             }
@@ -951,7 +951,7 @@ def serve_api(mongo_db, redis_client):
             distinct_login_counts = []
             for e in stats:
                 d = int(time.mktime(datetime.datetime(e['when'].year, e['when'].month, e['when'].day).timetuple()) * 1000)
-                
+
                 if 'distinct_login_count' in e: distinct_login_counts.append([ d, e['distinct_login_count'] ])
                 if 'login_count' in e: login_counts.append([ d, e['login_count'] ])
                 if 'new_count' in e: new_wallet_counts.append([ d, e['new_count'] ])
@@ -959,13 +959,13 @@ def serve_api(mongo_db, redis_client):
             wallet_stats.append({'name': '%s: Logins' % net.capitalize(), 'data': login_counts})
             wallet_stats.append({'name': '%s: Active Wallets' % net.capitalize(), 'data': distinct_login_counts})
             wallet_stats.append({'name': '%s: New Wallets' % net.capitalize(), 'data': new_wallet_counts})
-            
+
         return {
             'num_wallets_mainnet': num_wallets_mainnet,
             'num_wallets_testnet': num_wallets_testnet,
             'num_wallets_unknown': num_wallets_unknown,
             'wallet_stats': wallet_stats}
-    
+
     @dispatcher.add_method
     def get_owned_assets(addresses):
         """Gets a list of owned assets for one or more addresses"""
@@ -973,7 +973,7 @@ def serve_api(mongo_db, redis_client):
             'owner': {"$in": addresses}
         }, {"_id":0}).sort("asset", pymongo.ASCENDING)
         return list(result)
-    
+
     @dispatcher.add_method
     def get_asset_pair_market_info(asset1=None, asset2=None, limit=50):
         """Given two arbitrary assets, returns the base asset and the quote asset.
@@ -991,22 +991,22 @@ def serve_api(mongo_db, redis_client):
     def get_asset_extended_info(asset):
         ext_info = mongo_db.asset_extended_info.find_one({'asset': asset}, {'_id': 0})
         return ext_info or False
-    
+
     @dispatcher.add_method
     def get_asset_history(asset, reverse=False):
         """
         Returns a list of changes for the specified asset, from its inception to the current time.
-        
+
         @param asset: The asset to retrieve a history on
         @param reverse: By default, the history is returned in the order of oldest to newest. Set this parameter to True
         to return items in the order of newest to oldest.
-        
+
         @return:
         Changes are returned as a list of dicts, with each dict having the following format:
         * type: One of 'created', 'issued_more', 'changed_description', 'locked', 'transferred', 'called_back'
         * 'at_block': The block number this change took effect
         * 'at_block_time': The block time this change took effect
-        
+
         * IF type = 'created': Has the following fields, as specified when the asset was initially created:
           * owner, description, divisible, locked, total_issued, total_issued_normalized
         * IF type = 'issued_more':
@@ -1027,7 +1027,7 @@ def serve_api(mongo_db, redis_client):
         asset = mongo_db.tracked_assets.find_one({ 'asset': asset }, {"_id":0})
         if not asset:
             raise Exception("Unrecognized asset")
-        
+
         #run down through _history and compose a diff log
         history = []
         raw = asset['_history'] + [asset,] #oldest to newest. add on the current state
@@ -1048,7 +1048,7 @@ def serve_api(mongo_db, redis_client):
                 })
                 prev = raw[i]
                 continue
-            
+
             assert prev
             if raw[i]['_change_type'] == 'locked':
                 history.append({
@@ -1084,7 +1084,7 @@ def serve_api(mongo_db, redis_client):
                     'total_issued_normalized': raw[i]['total_issued_normalized'],
                 })
             prev = raw[i]
-        
+
         #get callbacks externally via the cpd API, and merge in with the asset history we composed
         callbacks = util.call_jsonrpc_api("get_callbacks",
             {'filters': {'field': 'asset', 'op': '==', 'value': asset['asset']}}, abort_on_error=True)['result']
@@ -1110,13 +1110,13 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def record_btc_open_order(wallet_id, order_tx_hash):
-        """Records an association between a wallet ID and order TX ID for a trade where BTC is being SOLD, to allow
-        buyers to see which sellers of the BTC are "online" (which can lead to a better result as a BTCpay will be required
-        to complete any trades where BTC is involved, and the seller (or at least their wallet) must be online for this to happen"""
+        """Records an association between a wallet ID and order TX ID for a trade where DOGE is being SOLD, to allow
+        buyers to see which sellers of the DOGE are "online" (which can lead to a better result as a BTCpay will be required
+        to complete any trades where DOGE is involved, and the seller (or at least their wallet) must be online for this to happen"""
         #ensure the wallet_id exists
         result =  mongo_db.preferences.find_one({"wallet_id": wallet_id})
         if not result: raise Exception("WalletID does not exist")
-        
+
         mongo_db.btc_open_orders.insert({
             'wallet_id': wallet_id,
             'order_tx_hash': order_tx_hash,
@@ -1129,21 +1129,21 @@ def serve_api(mongo_db, redis_client):
         mongo_db.btc_open_orders.remove({'order_tx_hash': order_tx_hash, 'wallet_id': wallet_id})
         #^ wallet_id is used more for security here so random folks can't remove orders from this collection just by tx hash
         return True
-    
+
     @dispatcher.add_method
     def get_balance_history(asset, addresses, normalize=True, start_ts=None, end_ts=None):
         """Retrieves the ordered balance history for a given address (or list of addresses) and asset pair, within the specified date range
-        @param normalize: If set to True, return quantities that (if the asset is divisible) have been divided by 100M (satoshi). 
+        @param normalize: If set to True, return quantities that (if the asset is divisible) have been divided by 100M (satoshi).
         @return: A list of tuples, with the first entry of each tuple being the block time (epoch TS), and the second being the new balance
          at that block time.
         """
         if not isinstance(addresses, list):
             raise Exception("addresses must be a list of addresses, even if it just contains one address")
-            
+
         asset_info = mongo_db.tracked_assets.find_one({'asset': asset})
         if not asset_info:
             raise Exception("Asset does not exist.")
-            
+
         now_ts = time.mktime(datetime.datetime.utcnow().timetuple())
         if not end_ts: #default to current datetime
             end_ts = now_ts
@@ -1158,7 +1158,7 @@ def serve_api(mongo_db, redis_client):
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts)
                 } if end_ts == now_ts else {
                     "$gte": datetime.datetime.utcfromtimestamp(start_ts),
-                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)                    
+                    "$lte": datetime.datetime.utcfromtimestamp(end_ts)
                 }
             }).sort("block_time", pymongo.ASCENDING)
             entry = {
@@ -1174,12 +1174,12 @@ def serve_api(mongo_db, redis_client):
     @dispatcher.add_method
     def get_num_users_online():
         #gets the current number of users attached to the server's chat feed
-        return len(siofeeds.onlineClients) 
+        return len(siofeeds.onlineClients)
 
     @dispatcher.add_method
     def is_chat_handle_in_use(handle):
         results = mongo_db.chat_handles.find({ 'handle': { '$regex': '^%s$' % handle, '$options': 'i' } })
-        return True if results.count() else False 
+        return True if results.count() else False
 
     @dispatcher.add_method
     def get_chat_handle(wallet_id):
@@ -1192,7 +1192,7 @@ def serve_api(mongo_db, redis_client):
             'is_op': result.get('is_op', False),
             'last_updated': result.get('last_updated', None)
             } if result else {}
-        banned_until = result.get('banned_until', None) 
+        banned_until = result.get('banned_until', None)
         if banned_until != -1 and banned_until is not None:
             data['banned_until'] = int(time.mktime(banned_until.timetuple())) * 1000 #convert to epoch ts in ms
         else:
@@ -1206,7 +1206,7 @@ def serve_api(mongo_db, redis_client):
             raise Exception("Invalid chat handle: bad data type")
         if not re.match(r'^[\sA-Za-z0-9_-]{4,12}$', handle):
             raise Exception("Invalid chat handle: bad syntax/length")
-        
+
         #see if this handle already exists (case insensitive)
         results = mongo_db.chat_handles.find({ 'handle': { '$regex': '^%s$' % handle, '$options': 'i' } })
         if results.count():
@@ -1221,7 +1221,7 @@ def serve_api(mongo_db, redis_client):
                 'wallet_id': wallet_id,
                 'handle': handle,
                 'last_updated': time.mktime(time.gmtime()),
-                'last_touched': time.mktime(time.gmtime()) 
+                'last_touched': time.mktime(time.gmtime())
                 }
             }, upsert=True)
         #^ last_updated MUST be in UTC, as it will be compaired again other servers
@@ -1234,11 +1234,11 @@ def serve_api(mongo_db, redis_client):
             end_ts = now_ts
         if not start_ts: #default to 5 days before the end date
             start_ts = end_ts - (30 * 24 * 60 * 60)
-            
+
         if limit >= 5000:
             raise Exception("Requesting too many lines (limit too high")
-        
-        
+
+
         filters = {
             "when": {
                 "$gte": datetime.datetime.utcfromtimestamp(start_ts)
@@ -1253,7 +1253,7 @@ def serve_api(mongo_db, redis_client):
         if not chat_history.count():
             return False #no suitable trade data to form a market price
         chat_history = list(chat_history)
-        return chat_history 
+        return chat_history
 
     @dispatcher.add_method
     def is_wallet_online(wallet_id):
@@ -1271,22 +1271,22 @@ def serve_api(mongo_db, redis_client):
 
         result =  mongo_db.preferences.find_one({"wallet_id": wallet_id})
         if not result: return False #doesn't exist
-        
+
         last_touched_date = datetime.datetime.utcfromtimestamp(result['last_touched']).date()
         now = datetime.datetime.utcnow()
-         
+
         if for_login: #record user login
             ip = flask.request.headers.get('X-Real-Ip', flask.request.remote_addr)
             ua = flask.request.headers.get('User-Agent', '')
             mongo_db.login_history.insert({'wallet_id': wallet_id, 'when': now, 'network': network, 'action': 'login', 'ip': ip, 'ua': ua})
-        
+
         result['last_touched'] = time.mktime(time.gmtime())
         mongo_db.preferences.save(result)
 
         return {
             'preferences': json.loads(result['preferences']),
             'last_updated': result.get('last_updated', None)
-        } 
+        }
 
 
     @dispatcher.add_method
@@ -1304,13 +1304,13 @@ def serve_api(mongo_db, redis_client):
             preferences_json = json.dumps(preferences)
         except:
             raise Exception("Cannot dump preferences to JSON")
-        
+
         now = datetime.datetime.utcnow()
-        
+
         #sanity check around max size
         if len(preferences_json) >= PREFERENCES_MAX_LENGTH:
             raise Exception("Preferences object is too big.")
-        
+
         if for_login: #mark this as a new signup IF the wallet doesn't exist already
             existing_record = mongo_db.login_history.find({'wallet_id': wallet_id, 'network': network, 'action': 'create'})
             if existing_record.count() == 0:
@@ -1320,7 +1320,7 @@ def serve_api(mongo_db, redis_client):
                     'network': network, 'action': 'create', 'referer': referer, 'ip': ip, 'ua': ua})
                 mongo_db.login_history.insert({'wallet_id': wallet_id, 'when': now,
                     'network': network, 'action': 'login', 'ip': ip, 'ua': ua}) #also log a wallet login
-        
+
         now_ts = time.mktime(time.gmtime())
         mongo_db.preferences.update(
             {'wallet_id': wallet_id},
@@ -1333,10 +1333,10 @@ def serve_api(mongo_db, redis_client):
             }, upsert=True)
         #^ last_updated MUST be in GMT, as it will be compaired again other servers
         return True
-    
+
     @dispatcher.add_method
     def proxy_to_counterpartyd(method='', params=[]):
-        if method=='sql': raise Exception("Invalid method") 
+        if method=='sql': raise Exception("Invalid method")
         result = None
         cache_key = None
 
@@ -1351,13 +1351,13 @@ def serve_api(mongo_db, redis_client):
                 except Exception, e:
                     logging.warn("Error loading JSON from cache: %s, cached data: '%s'" % (e, result))
                     result = None #skip from reading from cache and just make the API call
-        
+
         if result is None: #cache miss or cache disabled
             result = util.call_jsonrpc_api(method, params)
             if redis_client: #cache miss
                 redis_client.setex(cache_key, DEFAULT_COUNTERPARTYD_API_CACHE_PERIOD, json.dumps(result))
                 #^TODO: we may want to have different cache periods for different types of data
-        
+
         if 'error' in result:
             if result['error'].get('data', None):
                 errorMsg = result['error']['data'].get('message', result['error']['message'])
@@ -1423,28 +1423,28 @@ def serve_api(mongo_db, redis_client):
           return dex.get_market_details(asset1, asset2, min_fee_provided, max_fee_required, mongo_db)
         except Exception, e:
           logging.error(e)
-    
+
     @dispatcher.add_method
     def get_pubkey_for_address(address):
         #returns None if the address has made 0 transactions (as we wouldn't be able to get the public key)
-        return blockchain.get_pubkey_for_address(address) or False 
+        return blockchain.get_pubkey_for_address(address) or False
 
     @dispatcher.add_method
     def create_armory_utx(unsigned_tx_hex, public_key_hex):
         if not config.ARMORY_UTXSVR_ENABLE:
             raise Exception("Support for this feature is not enabled on this system")
-        
+
         endpoint = "http://127.0.0.1:%s/" % (
             config.ARMORY_UTXSVR_PORT_MAINNET if not config.TESTNET else config.ARMORY_UTXSVR_PORT_TESTNET)
         params = {'unsigned_tx_hex': unsigned_tx_hex, 'public_key_hex': public_key_hex}
         utx_ascii = util.call_jsonrpc_api("serialize_unsigned_tx", params=params, endpoint=endpoint, abort_on_error=True)['result']
         return utx_ascii
-    
+
     @dispatcher.add_method
     def convert_armory_signedtx_to_raw_hex(signed_tx_ascii):
         if not config.ARMORY_UTXSVR_ENABLE:
             raise Exception("Support for this feature is not enabled on this system")
-        
+
         endpoint = "http://127.0.0.1:%s/" % (
             config.ARMORY_UTXSVR_PORT_MAINNET if not config.TESTNET else config.ARMORY_UTXSVR_PORT_TESTNET)
         params = {'signed_tx_ascii': signed_tx_ascii}
@@ -1464,41 +1464,41 @@ def serve_api(mongo_db, redis_client):
         from email.MIMEBase import MIMEBase
         from email.MIMEText import MIMEText
         from email.mime.image import MIMEImage
-        
+
         if not config.SUPPORT_EMAIL:
             raise Exception("Sending of support emails are disabled on the server: no SUPPORT_EMAIL address set")
-        
+
         if not email.utils.parseaddr(from_email)[1]: #should have been validated in the form
             raise Exception("Invalid support email address")
-        
+
         try:
             if screenshot:
                 screenshot_data = screenshot.split(',', 1)[1]
                 screenshot_data_decoded = base64.b64decode(screenshot_data)
         except:
             raise Exception("screenshot data format unexpected")
-        
+
         try:
             addtl_info = json.loads(addtl_info)
             addtl_info = json.dumps(addtl_info, indent=1, sort_keys=False)
         except:
             raise Exception("addtl_info data format unexpected")
-        
+
         from_email_formatted = email.utils.formataddr((name, from_email))
         msg = MIMEMultipart()
-        msg['Subject'] = Header((problem[:75] + '...') if len(problem) > 75 else problem, 'utf-8') 
+        msg['Subject'] = Header((problem[:75] + '...') if len(problem) > 75 else problem, 'utf-8')
         msg['From'] = from_email_formatted
         msg['Reply-to'] = from_email_formatted
         msg['To'] = config.SUPPORT_EMAIL
         msg['Date'] = email.utils.formatdate(localtime=True)
-        
+
         msg_text = MIMEText("""Problem: %s\n\nAdditional Info:\n%s""" % (problem, addtl_info))
         msg.attach(msg_text)
-        
+
         if screenshot:
             image = MIMEImage(screenshot_data_decoded, name="screenshot.png")
             msg.attach(image)
-        
+
         server = smtplib.SMTP(config.EMAIL_SERVER)
         server.sendmail(from_email, config.SUPPORT_EMAIL, msg.as_string())
         return True
@@ -1515,7 +1515,7 @@ def serve_api(mongo_db, redis_client):
         response = flask.Response('', 204)
         _set_cors_headers(response)
         return response
-    
+
     @app.route('/', methods=["GET",])
     @app.route('/api/', methods=["GET",])
     def handle_get():
@@ -1527,10 +1527,10 @@ def serve_api(mongo_db, redis_client):
             except Exception, e:
                 obj_error = jsonrpc.exceptions.JSONRPCInvalidRequest(data="Invalid JSON-RPC 2.0 request format")
                 return flask.Response(obj_error.json.encode(), 200, mimetype='application/json')
-            
+
             tx_logger.info("***CSP SECURITY --- %s" % data_json)
             return flask.Response('', 200)
-        
+
         #"ping" counterpartyd to test
         cpd_s = time.time()
         cpd_result_valid = True
@@ -1568,11 +1568,11 @@ def serve_api(mongo_db, redis_client):
         finally:
             client.close()
         cbd_e = time.time()
-        
+
         response_code = 200
         if not cpd_result_valid or not cbd_result_valid:
             response_code = 500
-        
+
         result = {
             'counterpartyd': 'OK' if cpd_result_valid else 'NOT OK',
             'counterblockd': 'OK' if cbd_result_valid else 'NOT OK',
@@ -1587,7 +1587,7 @@ def serve_api(mongo_db, redis_client):
             'local_online_users': len(siofeeds.onlineClients),
         }
         return flask.Response(json.dumps(result), response_code, mimetype='application/json')
-        
+
     @app.route('/', methods=["POST",])
     @app.route('/api/', methods=["POST",])
     def handle_post():
@@ -1603,13 +1603,13 @@ def serve_api(mongo_db, redis_client):
             request_json = flask.request.get_data().decode('utf-8')
             request_data = json.loads(request_json)
             assert 'id' in request_data and request_data['jsonrpc'] == "2.0" and request_data['method']
-            # params may be omitted 
+            # params may be omitted
         except:
             obj_error = jsonrpc.exceptions.JSONRPCInvalidRequest(data="Invalid JSON-RPC 2.0 request format")
             response = flask.Response(obj_error.json.encode(), 200, mimetype='application/json')
             _set_cors_headers(response)
             return response
-            
+
         #only arguments passed as a dict are supported
         if request_data.get('params', None) and not isinstance(request_data['params'], dict):
             obj_error = jsonrpc.exceptions.JSONRPCInvalidRequest(
@@ -1617,33 +1617,33 @@ def serve_api(mongo_db, redis_client):
             response = flask.Response(obj_error.json.encode(), 200, mimetype='application/json')
             _set_cors_headers(response)
             return response
-        
+
         rpc_response = jsonrpc.JSONRPCResponseManager.handle(request_json, dispatcher)
         rpc_response_json = json.dumps(rpc_response.data, default=util.json_dthandler).encode()
-        
+
         #log the request data
         try:
             assert 'method' in request_data
             tx_logger.info("TRANSACTION --- %s ||| REQUEST: %s ||| RESPONSE: %s" % (request_data['method'], request_json, rpc_response_json))
         except Exception, e:
             logging.info("Could not log transaction: Invalid format: %s" % e)
-            
+
         response = flask.Response(rpc_response_json, 200, mimetype='application/json')
         _set_cors_headers(response)
         return response
-    
+
     #make a new RotatingFileHandler for the access log.
     api_logger = logging.getLogger("api_log")
     h = logging_handlers.RotatingFileHandler(os.path.join(config.DATA_DIR, "api.access.log"), 'a', API_MAX_LOG_SIZE, API_MAX_LOG_COUNT)
     api_logger.setLevel(logging.INFO)
     api_logger.addHandler(h)
     api_logger.propagate = False
-    
+
     #hack to allow wsgiserver logging to use python logging module...
     def trimlog(log, msg):
         log.info(msg.rstrip())
-    api_logger.write = functools.partial(trimlog, api_logger)    
-    
+    api_logger.write = functools.partial(trimlog, api_logger)
+
     #start up the API listener/handler
     server = wsgi.WSGIServer((config.RPC_HOST, int(config.RPC_PORT)), app, log=api_logger)
     server.serve_forever()

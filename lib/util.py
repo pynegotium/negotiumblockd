@@ -32,7 +32,7 @@ import strict_rfc3339, rfc3987, aniso8601
 
 from lib import config, util_bitcoin
 
-JSONRPC_API_REQUEST_TIMEOUT = 10 #in seconds 
+JSONRPC_API_REQUEST_TIMEOUT = 10 #in seconds
 D = decimal.Decimal
 
 
@@ -57,18 +57,18 @@ def is_valid_url(url, suffix='', allow_localhost=False, allow_no_protocol=False)
         r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
         r'(?::\d+)?'  # optional port
         r'(?:/?|[/?]\S+)%s$' % (re.escape('%s') % suffix if suffix else ''), re.IGNORECASE)
-    
+
     if not allow_localhost:
         if re.search(r'^https?://localhost', url, re.IGNORECASE) or re.search(r'^https?://127', url, re.IGNORECASE):
             return None
-    
+
     return url is not None and regex.search(url)
 
 def assets_to_asset_pair(asset1, asset2):
     """Pair labeling rules are:
-    If XCP is either asset, it takes presidence as the base asset.
-    If XCP is not either asset, but BTC is, BTC will take presidence as the base asset.
-    If neither XCP nor BTC are either asset, the first asset (alphabetically) will take presidence as the base asset
+    If XDP is either asset, it takes presidence as the base asset.
+    If XDP is not either asset, but DOGE is, DOGE will take presidence as the base asset.
+    If neither XDP nor DOGE are either asset, the first asset (alphabetically) will take presidence as the base asset
     """
     base = None
     quote = None
@@ -91,7 +91,7 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
     if not endpoint: endpoint = config.COUNTERPARTYD_RPC
     if not auth: auth = config.COUNTERPARTYD_AUTH
     if not params: params = {}
-    
+
     payload = {
       "id": 0,
       "jsonrpc": "2.0",
@@ -105,7 +105,7 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
     if auth:
         #auth should be a (username, password) tuple, if specified
         headers['Authorization'] = http_basic_auth_str(auth[0], auth[1])
-    
+
     try:
         u = URL(endpoint)
         client = HTTPClient.from_url(u, connection_timeout=JSONRPC_API_REQUEST_TIMEOUT,
@@ -119,7 +119,7 @@ def call_jsonrpc_api(method, params=None, endpoint=None, auth=None, abort_on_err
         result = json.loads(r.read())
     finally:
         client.close()
-    
+
     if abort_on_error and 'error' in result:
         raise Exception("Got back error from server: %s" % result['error'])
     return result
@@ -169,7 +169,7 @@ def grouper(n, iterable, fillmissing=False, fillvalue=None):
 def multikeysort(items, columns):
     """http://stackoverflow.com/a/1144405"""
     from operator import itemgetter
-    comparers = [ ((itemgetter(col[1:].strip()), -1) if col.startswith('-') else (itemgetter(col.strip()), 1)) for col in columns]  
+    comparers = [ ((itemgetter(col[1:].strip()), -1) if col.startswith('-') else (itemgetter(col.strip()), 1)) for col in columns]
     def comparer(left, right):
         for fn, mult in comparers:
             result = cmp(fn(left), fn(right))
@@ -188,7 +188,7 @@ def weighted_average(value_weight_list):
     """Takes a list of tuples (value, weight) and returns weighted average as
     calculated by Sum of all values * weights / Sum of all weights
     http://bcdcspatial.blogspot.com/2010/08/simple-weighted-average-with-python.html
-    """    
+    """
     numerator = sum([v * w for v,w in value_weight_list])
     denominator = sum([w for v,w in value_weight_list])
     if(denominator != 0):
@@ -212,7 +212,7 @@ def get_block_indexes_for_dates(start_dt=None, end_dt=None):
     else:
         start_block = mongo_db.processed_blocks.find_one({"block_time": {"$lte": start_dt} }, sort=[("block_time", pymongo.DESCENDING)])
         start_block_index = config.BLOCK_FIRST if not start_block else start_block['block_index']
-    
+
     if end_dt is None:
         end_block_index = config.CURRENT_BLOCK_INDEX
     else:
@@ -239,10 +239,10 @@ def decorate_message(message, for_txn_history=False):
         message['_command'] = 'insert' #history data doesn't include this
         block_index = message['block_index'] if 'block_index' in message else message['tx1_block_index']
         message['_block_time'] = get_block_time(block_index)
-        message['_tx_index'] = message['tx_index'] if 'tx_index' in message else message.get('tx1_index', None)  
+        message['_tx_index'] = message['tx_index'] if 'tx_index' in message else message.get('tx1_index', None)
         if message['_category'] in ['bet_expirations', 'order_expirations', 'bet_match_expirations', 'order_match_expirations']:
             message['_tx_index'] = 0 #add tx_index to all entries (so we can sort on it secondarily in history view), since these lack it
-    
+
     if message['_category'] in ['credits', 'debits']:
         #find the last balance change on record
         bal_change = mongo_db.balance_changes.find_one({ 'address': message['address'], 'asset': message['asset'] },
@@ -256,13 +256,13 @@ def decorate_message(message, for_txn_history=False):
         give_asset_info = mongo_db.tracked_assets.find_one({'asset': message['give_asset']})
         message['_get_asset_divisible'] = get_asset_info['divisible'] if get_asset_info else None
         message['_give_asset_divisible'] = give_asset_info['divisible'] if give_asset_info else None
-    
+
     if message['_category'] in ['order_matches',] and message['_command'] == 'insert':
         forward_asset_info = mongo_db.tracked_assets.find_one({'asset': message['forward_asset']})
         backward_asset_info = mongo_db.tracked_assets.find_one({'asset': message['backward_asset']})
         message['_forward_asset_divisible'] = forward_asset_info['divisible'] if forward_asset_info else None
         message['_backward_asset_divisible'] = backward_asset_info['divisible'] if backward_asset_info else None
-    
+
     if message['_category'] in ['orders', 'order_matches',]:
         message['_btc_below_dust_limit'] = (
                 ('forward_asset' in message and message['forward_asset'] == config.BTC and message['forward_quantity'] <= config.ORDER_BTC_DUST_LIMIT_CUTOFF)
@@ -272,7 +272,7 @@ def decorate_message(message, for_txn_history=False):
     if message['_category'] in ['dividends', 'sends', 'callbacks']:
         asset_info = mongo_db.tracked_assets.find_one({'asset': message['asset']})
         message['_divisible'] = asset_info['divisible'] if asset_info else None
-    
+
     if message['_category'] in ['issuances',]:
         message['_quantity_normalized'] = util_bitcoin.normalize_quantity(message['quantity'], message['divisible'])
     return message
@@ -282,7 +282,7 @@ def decorate_message_for_feed(msg, msg_data=None):
     sent through the counterblockd message feed to an end-client"""
     if not msg_data:
         msg_data = json.loads(msg['bindings'])
-    
+
     message = copy.deepcopy(msg_data)
     message['_message_index'] = msg['message_index']
     message['_command'] = msg['command']
@@ -300,7 +300,7 @@ def is_caught_up_well_enough_for_government_work():
 def stream_fetch(urls, completed_callback, urls_group_size=50, urls_group_time_spacing=0, max_fetch_size=4*1024,
 fetch_timeout=1, is_json=True, per_request_complete_callback=None):
     completed_urls = {}
-    
+
     def make_stream_request(url):
         try:
             u = URL(url)
@@ -330,14 +330,14 @@ fetch_timeout=1, is_json=True, per_request_complete_callback=None):
                     data = (False, "Request error: %s" % e)
         finally:
             client.close()
-            
+
         if per_request_complete_callback:
             per_request_complete_callback(url, data)
-            
+
         completed_urls[url] = data
         if len(completed_urls) == len(urls): #all done, trigger callback
             return completed_callback(completed_urls)
-        
+
     def process_group(group):
         group_results = []
         pool = gevent.pool.Pool(urls_group_size)
@@ -354,7 +354,7 @@ fetch_timeout=1, is_json=True, per_request_complete_callback=None):
 
     if not isinstance(urls, (list, tuple)):
         urls = [urls,]
-        
+
     urls = list(set(urls)) #remove duplicates (so we only fetch any given URL, once)
     groups = grouper(urls_group_size, urls)
     for i in xrange(len(groups)):
@@ -372,9 +372,9 @@ def fetch_image(url, folder, filename, max_size=20*1024, formats=['png'], dimens
         if not os.path.exists(path):
             os.makedirs(path)
         return path
-    
+
     try:
-        #fetch the image data 
+        #fetch the image data
         try:
             u = URL(url)
             client_kwargs = {'connection_timeout': fetch_timeout, 'network_timeout': fetch_timeout, 'insecure': True}
@@ -389,7 +389,7 @@ def fetch_image(url, folder, filename, max_size=20*1024, formats=['png'], dimens
                 raise Exception("Bad status code returned from fetch_image: '%s'" % (r.status_code))
         finally:
             client.close()
-    
+
         #decode image data
         try:
             image = Image.open(StringIO.StringIO(raw_image_data))
