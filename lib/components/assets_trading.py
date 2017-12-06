@@ -85,8 +85,8 @@ def calc_price_change(open, close):
 
 def get_price_primatives(start_dt=None, end_dt=None):
     mps_xcp_btc = get_market_price_summary(config.XCP, config.BTC, start_dt=start_dt, end_dt=end_dt)
-    xcp_btc_price = mps_xcp_btc['market_price'] if mps_xcp_btc else None # == XDP/DOGE
-    btc_xcp_price = calc_inverse(mps_xcp_btc['market_price']) if mps_xcp_btc else None #DOGE/XDP
+    xcp_btc_price = mps_xcp_btc['market_price'] if mps_xcp_btc else None # == NGM/XTO
+    btc_xcp_price = calc_inverse(mps_xcp_btc['market_price']) if mps_xcp_btc else None #XTO/NGM
     return mps_xcp_btc, xcp_btc_price, btc_xcp_price
 
 def get_asset_info(asset, at_dt=None):
@@ -104,7 +104,7 @@ def get_asset_info(asset, at_dt=None):
         if asset_info is None: return None
         assert asset_info['_at_block_time'] <= at_dt
 
-    #modify some of the properties of the returned asset_info for DOGE and XDP
+    #modify some of the properties of the returned asset_info for XTO and NGM
     if asset == config.BTC:
         if at_dt:
             start_block_index, end_block_index = util.get_block_indexes_for_dates(end_dt=at_dt)
@@ -115,7 +115,7 @@ def get_asset_info(asset, at_dt=None):
             asset_info['total_issued_normalized'] = util_bitcoin.normalize_quantity(asset_info['total_issued'])
     elif asset == config.XCP:
         #BUG: this does not take end_dt (if specified) into account. however, the deviation won't be too big
-        # as XDP doesn't deflate quickly at all, and shouldn't matter that much since there weren't any/much trades
+        # as NGM doesn't deflate quickly at all, and shouldn't matter that much since there weren't any/much trades
         # before the end of the burn period (which is what is involved with how we use at_dt with currently)
         asset_info['total_issued'] = util.call_jsonrpc_api("get_xcp_supply", abort_on_error=True)['result']
         asset_info['total_issued_normalized'] = util_bitcoin.normalize_quantity(asset_info['total_issued'])
@@ -125,13 +125,13 @@ def get_asset_info(asset, at_dt=None):
 
 def get_xcp_btc_price_info(asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price, with_last_trades=0, start_dt=None, end_dt=None):
     if asset not in [config.BTC, config.XCP]:
-        #get price data for both the asset with XDP, as well as DOGE
+        #get price data for both the asset with NGM, as well as XTO
         price_summary_in_xcp = get_market_price_summary(asset, config.XCP,
             with_last_trades=with_last_trades, start_dt=start_dt, end_dt=end_dt)
         price_summary_in_btc = get_market_price_summary(asset, config.BTC,
             with_last_trades=with_last_trades, start_dt=start_dt, end_dt=end_dt)
 
-        #aggregated (averaged) price (expressed as XDP) for the asset on both the XDP and DOGE markets
+        #aggregated (averaged) price (expressed as NGM) for the asset on both the NGM and XTO markets
         if price_summary_in_xcp: # no trade data
             price_in_xcp = price_summary_in_xcp['market_price']
             if xcp_btc_price:
@@ -150,8 +150,8 @@ def get_xcp_btc_price_info(asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price, wit
             aggregated_price_in_btc = None
             price_in_btc = None
     else:
-        #here we take the normal XDP/DOGE pair, and invert it to DOGE/XDP, to get XDP's data in terms of a DOGE base
-        # (this is the only area we do this, as DOGE/XDP is NOT standard pair ordering)
+        #here we take the normal NGM/XTO pair, and invert it to XTO/NGM, to get NGM's data in terms of a XTO base
+        # (this is the only area we do this, as XTO/NGM is NOT standard pair ordering)
         price_summary_in_xcp = mps_xcp_btc #might be None
         price_summary_in_btc = copy.deepcopy(mps_xcp_btc) if mps_xcp_btc else None #must invert this -- might be None
         if price_summary_in_btc:
@@ -183,7 +183,7 @@ def calc_market_cap(asset_info, price_in_xcp, price_in_btc):
 
 def compile_summary_market_info(asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price):
     """Returns information related to capitalization, volume, etc for the supplied asset(s)
-    NOTE: in_btc == base asset is DOGE, in_xcp == base asset is XDP
+    NOTE: in_btc == base asset is XTO, in_xcp == base asset is NGM
     @param assets: A list of one or more assets
     """
     asset_info = get_asset_info(asset)
@@ -191,10 +191,10 @@ def compile_summary_market_info(asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price
     ) = get_xcp_btc_price_info(asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price, with_last_trades=30)
     market_cap_in_xcp, market_cap_in_btc = calc_market_cap(asset_info, price_in_xcp, price_in_btc)
     return {
-        'price_in_{}'.format(config.XCP.lower()): price_in_xcp, #current price of asset vs XDP (e.g. how many units of asset for 1 unit XDP)
-        'price_in_{}'.format(config.BTC.lower()): price_in_btc, #current price of asset vs DOGE (e.g. how many units of asset for 1 unit DOGE)
-        'price_as_{}'.format(config.XCP.lower()): calc_inverse(price_in_xcp) if price_in_xcp else None, #current price of asset AS XDP
-        'price_as_{}'.format(config.BTC.lower()): calc_inverse(price_in_btc) if price_in_btc else None, #current price of asset AS DOGE
+        'price_in_{}'.format(config.XCP.lower()): price_in_xcp, #current price of asset vs NGM (e.g. how many units of asset for 1 unit NGM)
+        'price_in_{}'.format(config.BTC.lower()): price_in_btc, #current price of asset vs XTO (e.g. how many units of asset for 1 unit XTO)
+        'price_as_{}'.format(config.XCP.lower()): calc_inverse(price_in_xcp) if price_in_xcp else None, #current price of asset AS NGM
+        'price_as_{}'.format(config.BTC.lower()): calc_inverse(price_in_btc) if price_in_btc else None, #current price of asset AS XTO
         'aggregated_price_in_{}'.format(config.XCP.lower()): aggregated_price_in_xcp,
         'aggregated_price_in_{}'.format(config.BTC.lower()): aggregated_price_in_btc,
         'aggregated_price_as_{}'.format(config.XCP.lower()): calc_inverse(aggregated_price_in_xcp) if aggregated_price_in_xcp else None,
@@ -210,7 +210,7 @@ def compile_24h_market_info(asset):
     mongo_db = config.mongo_db
 
     #perform aggregation to get 24h statistics
-    #TOTAL volume and count across all trades for the asset (on ALL markets, not just XDP and DOGE pairings)
+    #TOTAL volume and count across all trades for the asset (on ALL markets, not just NGM and XTO pairings)
     _24h_vols = {'vol': 0, 'count': 0}
     _24h_vols_as_base = mongo_db.trades.aggregate([
         {"$match": {
@@ -245,7 +245,7 @@ def compile_24h_market_info(asset):
     _24h_vols['vol'] = _24h_vols_as_base.get('vol', 0) + _24h_vols_as_quote.get('vol', 0)
     _24h_vols['count'] = _24h_vols_as_base.get('count', 0) + _24h_vols_as_quote.get('count', 0)
 
-    #XDP market volume with stats
+    #NGM market volume with stats
     if asset != config.XCP:
         _24h_ohlc_in_xcp = mongo_db.trades.aggregate([
             {"$match": {
@@ -272,7 +272,7 @@ def compile_24h_market_info(asset):
     else:
         _24h_ohlc_in_xcp = {}
 
-    #DOGE market volume with stats
+    #XTO market volume with stats
     if asset != config.BTC:
         _24h_ohlc_in_btc = mongo_db.trades.aggregate([
             {"$match": {
@@ -303,9 +303,9 @@ def compile_24h_market_info(asset):
         '24h_summary': _24h_vols,
         #^ total quantity traded of that asset in all markets in last 24h
         '24h_ohlc_in_{}'.format(config.XCP.lower()): _24h_ohlc_in_xcp,
-        #^ quantity of asset traded with DOGE in last 24h
+        #^ quantity of asset traded with XTO in last 24h
         '24h_ohlc_in_{}'.format(config.BTC.lower()): _24h_ohlc_in_btc,
-        #^ quantity of asset traded with XDP in last 24h
+        #^ quantity of asset traded with NGM in last 24h
         '24h_vol_price_change_in_{}'.format(config.XCP.lower()): calc_price_change(_24h_ohlc_in_xcp['open'], _24h_ohlc_in_xcp['close'])
             if _24h_ohlc_in_xcp else None,
         #^ aggregated price change from 24h ago to now, expressed as a signed float (e.g. .54 is +54%, -1.12 is -112%)
@@ -317,9 +317,9 @@ def compile_7d_market_info(asset):
     mongo_db = config.mongo_db
     start_dt_7d = datetime.datetime.utcnow() - datetime.timedelta(days=7)
 
-    #get XDP and DOGE market summarized trades over a 7d period (quantize to hour long slots)
-    _7d_history_in_xcp = None # XDP/asset market (or XDP/DOGE for XDP or DOGE)
-    _7d_history_in_btc = None # DOGE/asset market (or DOGE/XDP for XDP or DOGE)
+    #get NGM and XTO market summarized trades over a 7d period (quantize to hour long slots)
+    _7d_history_in_xcp = None # NGM/asset market (or NGM/XTO for NGM or XTO)
+    _7d_history_in_btc = None # XTO/asset market (or XTO/NGM for NGM or XTO)
     if asset not in [config.BTC, config.XCP]:
         for a in [config.XCP, config.BTC]:
             _7d_history = mongo_db.trades.aggregate([
@@ -346,7 +346,7 @@ def compile_7d_market_info(asset):
             _7d_history = [] if not _7d_history['ok'] else _7d_history['result']
             if a == config.XCP: _7d_history_in_xcp = _7d_history
             else: _7d_history_in_btc = _7d_history
-    else: #get the XDP/DOGE market and invert for DOGE/XDP (_7d_history_in_btc)
+    else: #get the NGM/XTO market and invert for XTO/NGM (_7d_history_in_btc)
         _7d_history = mongo_db.trades.aggregate([
             {"$match": {
                 "base_asset": config.XCP,
@@ -433,7 +433,7 @@ def compile_asset_pair_market_info():
             if pair_data[pair]['highest_bid'] is None or order_price > pair_data[pair]['highest_bid']:
                 pair_data[pair]['highest_bid'] = order_price
 
-    #COMPOSE volume data (in XDP and DOGE), and % change data
+    #COMPOSE volume data (in NGM and XTO), and % change data
     #loop through all trade volume over the past 24h, and match that to the open orders
     trades_data_by_pair = mongo_db.trades.aggregate([
         {"$match": {
@@ -461,20 +461,20 @@ def compile_asset_pair_market_info():
         pair_data[pair]['vol_base'] = e['vol_base']
         pair_data[pair]['vol_quote'] = e['vol_quote']
 
-    #compose price data, relative to DOGE and XDP
+    #compose price data, relative to XTO and NGM
     mps_xcp_btc, xcp_btc_price, btc_xcp_price = get_price_primatives()
     for pair, e in pair_data.iteritems():
         base_asset, quote_asset = pair.split('/')
         _24h_vol_in_btc = None
         _24h_vol_in_xcp = None
-        #derive asset price data, expressed in DOGE and XDP, for the given volumes
+        #derive asset price data, expressed in XTO and NGM, for the given volumes
         if base_asset == config.XCP:
             _24h_vol_in_xcp = e['vol_base']
             _24h_vol_in_btc = util_bitcoin.round_out(e['vol_base'] * xcp_btc_price) if xcp_btc_price else 0
         elif base_asset == config.BTC:
             _24h_vol_in_xcp = util_bitcoin.round_out(e['vol_base'] * btc_xcp_price) if btc_xcp_price else 0
             _24h_vol_in_btc = e['vol_base']
-        else: #base is not XDP or DOGE
+        else: #base is not NGM or XTO
             price_summary_in_xcp, price_summary_in_btc, price_in_xcp, price_in_btc, aggregated_price_in_xcp, aggregated_price_in_btc = \
                 get_xcp_btc_price_info(base_asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price, with_last_trades=0, start_dt=start_dt, end_dt=end_dt)
             if price_in_xcp:
@@ -483,7 +483,7 @@ def compile_asset_pair_market_info():
                 _24h_vol_in_btc = util_bitcoin.round_out(e['vol_base'] * price_in_btc)
 
             if _24h_vol_in_xcp is None or _24h_vol_in_btc is None:
-                #the base asset didn't have price data against DOGE or XDP, or both...try against the quote asset instead
+                #the base asset didn't have price data against XTO or NGM, or both...try against the quote asset instead
                 price_summary_in_xcp, price_summary_in_btc, price_in_xcp, price_in_btc, aggregated_price_in_xcp, aggregated_price_in_btc = \
                     get_xcp_btc_price_info(quote_asset, mps_xcp_btc, xcp_btc_price, btc_xcp_price, with_last_trades=0, start_dt=start_dt, end_dt=end_dt)
                 if _24h_vol_in_xcp is None and price_in_xcp:
@@ -540,7 +540,7 @@ def compile_asset_market_info():
     all_traded_assets = list(set(list([config.BTC, config.XCP]) + list(mongo_db.trades.find({}, {'quote_asset': 1, '_id': 0}).distinct('quote_asset'))))
 
     #######################
-    #get a list of all assets with a trade within the last 24h (not necessarily just against XDP and DOGE)
+    #get a list of all assets with a trade within the last 24h (not necessarily just against NGM and XTO)
     # ^ this is important because compiled market info has a 24h vol parameter that designates total volume for the asset across ALL pairings
     start_dt_1d = datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
@@ -563,7 +563,7 @@ def compile_asset_market_info():
     logging.info("Block: %s -- Calculated 24h stats for: %s" % (current_block_index, ', '.join(assets)))
 
     #######################
-    #get a list of all assets with a trade within the last 7d up against XDP and DOGE
+    #get a list of all assets with a trade within the last 7d up against NGM and XTO
     start_dt_7d = datetime.datetime.utcnow() - datetime.timedelta(days=7)
     assets = list(set(
           list(mongo_db.trades.find({'block_time': {'$gte': start_dt_7d}, 'base_asset': {'$in': [config.XCP, config.BTC]}}).distinct('quote_asset'))
@@ -581,7 +581,7 @@ def compile_asset_market_info():
 
     #######################
     #update summary market data for assets traded since last_block_assets_compiled
-    #get assets that were traded since the last check with either DOGE or XDP, and update their market summary data
+    #get assets that were traded since the last check with either XTO or NGM, and update their market summary data
     assets = list(set(
           list(mongo_db.trades.find({'block_index': {'$gt': last_block_assets_compiled}, 'base_asset': {'$in': [config.XCP, config.BTC]}}).distinct('quote_asset'))
         + list(mongo_db.trades.find({'block_index': {'$gt': last_block_assets_compiled}}).distinct('base_asset'))

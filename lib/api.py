@@ -134,7 +134,7 @@ def serve_api(mongo_db, redis_client):
         """
         This call augments counterpartyd's get_balances with a normalized_quantity field. It also will include any owned
         assets for an address, even if their balance is zero.
-        NOTE: Does not retrieve DOGE balance. Use get_address_info for that.
+        NOTE: Does not retrieve XTO balance. Use get_address_info for that.
         """
         if not isinstance(addresses, list):
             raise Exception("addresses must be a list of addresses, even if it just contains one address")
@@ -499,9 +499,9 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def get_market_info_leaderboard(limit=100):
-        """returns market leaderboard data for both the XDP and DOGE markets"""
-        #do two queries because we limit by our sorted results, and we might miss an asset with a high DOGE trading value
-        # but with little or no XDP trading activity, for instance if we just did one query
+        """returns market leaderboard data for both the NGM and XTO markets"""
+        #do two queries because we limit by our sorted results, and we might miss an asset with a high XTO trading value
+        # but with little or no NGM trading activity, for instance if we just did one query
         assets_market_info_xcp = list(mongo_db.asset_market_info.find({}, {'_id': 0}).sort('market_cap_in_{}'.format(config.XCP.lower()), pymongo.DESCENDING).limit(limit))
         assets_market_info_btc = list(mongo_db.asset_market_info.find({}, {'_id': 0}).sort('market_cap_in_{}'.format(config.BTC.lower()), pymongo.DESCENDING).limit(limit))
         assets_market_info = {
@@ -640,9 +640,9 @@ def serve_api(mongo_db, redis_client):
     ask_book_min_pct_fee_provided=None, ask_book_min_pct_fee_required=None, ask_book_max_pct_fee_required=None):
         """Gets the current order book for a specified asset pair
 
-        @param: normalized_fee_required: Only specify if buying DOGE. If specified, the order book will be pruned down to only
+        @param: normalized_fee_required: Only specify if buying XTO. If specified, the order book will be pruned down to only
          show orders at and above this fee_required
-        @param: normalized_fee_provided: Only specify if selling DOGE. If specified, the order book will be pruned down to only
+        @param: normalized_fee_provided: Only specify if selling XTO. If specified, the order book will be pruned down to only
          show orders at and above this fee_provided
         """
         base_asset_info = mongo_db.tracked_assets.find_one({'asset': base_asset})
@@ -662,8 +662,8 @@ def serve_api(mongo_db, redis_client):
         ]
         if base_asset == config.BTC or quote_asset == config.BTC:
             extra_filters = [
-                {'field': 'give_remaining', 'op': '>', 'value': 0}, #don't show empty DOGE orders
-                {'field': 'get_remaining', 'op': '>', 'value': 0}, #don't show empty DOGE orders
+                {'field': 'give_remaining', 'op': '>', 'value': 0}, #don't show empty XTO orders
+                {'field': 'get_remaining', 'op': '>', 'value': 0}, #don't show empty XTO orders
                 {'field': 'fee_required_remaining', 'op': '>=', 'value': 0},
                 {'field': 'fee_provided_remaining', 'op': '>=', 'value': 0},
             ]
@@ -695,7 +695,7 @@ def serve_api(mongo_db, redis_client):
             else: pct_fee_required = None
             return pct_fee_provided, pct_fee_required
 
-        #filter results by pct_fee_provided and pct_fee_required for DOGE pairs as appropriate
+        #filter results by pct_fee_provided and pct_fee_required for XTO pairs as appropriate
         filtered_base_bid_orders = []
         filtered_base_ask_orders = []
         if base_asset == config.BTC or quote_asset == config.BTC:
@@ -787,7 +787,7 @@ def serve_api(mongo_db, redis_client):
             # indexes and display datetimes instead)
             o['block_time'] = time.mktime(util.get_block_time(o['block_index']).timetuple()) * 1000
 
-        #for orders where DOGE is the give asset, also return online status of the user
+        #for orders where XTO is the give asset, also return online status of the user
         for o in orders:
             if o['give_asset'] == config.BTC:
                 r = mongo_db.btc_open_orders.find_one({'order_tx_hash': o['tx_hash']})
@@ -829,29 +829,29 @@ def serve_api(mongo_db, redis_client):
         ask_book_max_pct_fee_required = None
         if base_asset == config.BTC:
             if buy_asset == config.BTC:
-                #if DOGE is base asset and we're buying it, we're buying the BASE. we require a DOGE fee (we're on the bid (bottom) book and we want a lower price)
-                # - show BASE buyers (bid book) that require a DOGE fee >= what we require (our side of the book)
-                # - show BASE sellers (ask book) that provide a DOGE fee >= what we require
+                #if XTO is base asset and we're buying it, we're buying the BASE. we require a XTO fee (we're on the bid (bottom) book and we want a lower price)
+                # - show BASE buyers (bid book) that require a XTO fee >= what we require (our side of the book)
+                # - show BASE sellers (ask book) that provide a XTO fee >= what we require
                 bid_book_min_pct_fee_required = pct_fee_required #my competition at the given fee required
                 ask_book_min_pct_fee_provided = pct_fee_required
             elif sell_asset == config.BTC:
-                #if DOGE is base asset and we're selling it, we're selling the BASE. we provide a DOGE fee (we're on the ask (top) book and we want a higher price)
-                # - show BASE buyers (bid book) that provide a DOGE fee >= what we provide
-                # - show BASE sellers (ask book) that require a DOGE fee <= what we provide (our side of the book)
+                #if XTO is base asset and we're selling it, we're selling the BASE. we provide a XTO fee (we're on the ask (top) book and we want a higher price)
+                # - show BASE buyers (bid book) that provide a XTO fee >= what we provide
+                # - show BASE sellers (ask book) that require a XTO fee <= what we provide (our side of the book)
                 bid_book_max_pct_fee_required = pct_fee_provided
                 ask_book_min_pct_fee_provided = pct_fee_provided #my competition at the given fee provided
         elif quote_asset == config.BTC:
             assert base_asset == config.XCP #only time when this is the case
             if buy_asset == config.BTC:
-                #if DOGE is quote asset and we're buying it, we're selling the BASE. we require a DOGE fee (we're on the ask (top) book and we want a higher price)
-                # - show BASE buyers (bid book) that provide a DOGE fee >= what we require
-                # - show BASE sellers (ask book) that require a DOGE fee >= what we require (our side of the book)
+                #if XTO is quote asset and we're buying it, we're selling the BASE. we require a XTO fee (we're on the ask (top) book and we want a higher price)
+                # - show BASE buyers (bid book) that provide a XTO fee >= what we require
+                # - show BASE sellers (ask book) that require a XTO fee >= what we require (our side of the book)
                 bid_book_min_pct_fee_provided = pct_fee_required
                 ask_book_min_pct_fee_required = pct_fee_required #my competition at the given fee required
             elif sell_asset == config.BTC:
-                #if DOGE is quote asset and we're selling it, we're buying the BASE. we provide a DOGE fee (we're on the bid (bottom) book and we want a lower price)
-                # - show BASE buyers (bid book) that provide a DOGE fee >= what we provide (our side of the book)
-                # - show BASE sellers (ask book) that require a DOGE fee <= what we provide
+                #if XTO is quote asset and we're selling it, we're buying the BASE. we provide a XTO fee (we're on the bid (bottom) book and we want a lower price)
+                # - show BASE buyers (bid book) that provide a XTO fee >= what we provide (our side of the book)
+                # - show BASE sellers (ask book) that require a XTO fee <= what we provide
                 bid_book_min_pct_fee_provided = pct_fee_provided #my compeitition at the given fee provided
                 ask_book_max_pct_fee_required = pct_fee_provided
 
@@ -1110,9 +1110,9 @@ def serve_api(mongo_db, redis_client):
 
     @dispatcher.add_method
     def record_btc_open_order(wallet_id, order_tx_hash):
-        """Records an association between a wallet ID and order TX ID for a trade where DOGE is being SOLD, to allow
-        buyers to see which sellers of the DOGE are "online" (which can lead to a better result as a BTCpay will be required
-        to complete any trades where DOGE is involved, and the seller (or at least their wallet) must be online for this to happen"""
+        """Records an association between a wallet ID and order TX ID for a trade where XTO is being SOLD, to allow
+        buyers to see which sellers of the XTO are "online" (which can lead to a better result as a BTCpay will be required
+        to complete any trades where XTO is involved, and the seller (or at least their wallet) must be online for this to happen"""
         #ensure the wallet_id exists
         result =  mongo_db.preferences.find_one({"wallet_id": wallet_id})
         if not result: raise Exception("WalletID does not exist")

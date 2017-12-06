@@ -66,9 +66,9 @@ def is_valid_url(url, suffix='', allow_localhost=False, allow_no_protocol=False)
 
 def assets_to_asset_pair(asset1, asset2):
     """Pair labeling rules are:
-    If XDP is either asset, it takes presidence as the base asset.
-    If XDP is not either asset, but DOGE is, DOGE will take presidence as the base asset.
-    If neither XDP nor DOGE are either asset, the first asset (alphabetically) will take presidence as the base asset
+    If NGM is either asset, it takes presidence as the base asset.
+    If NGM is not either asset, but XTO is, XTO will take presidence as the base asset.
+    If neither NGM nor XTO are either asset, the first asset (alphabetically) will take presidence as the base asset
     """
     base = None
     quote = None
